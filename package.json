@@ -1,0 +1,70 @@
+{
+  "name": "slime-3d",
+  "version": "1.0.0",
+  "description": "Web1.0風のUIで3Dモデルや画像をスライム化できる物理シミュレーションソフト",
+  "main": "electron-main.js",
+  "author": "kawauchi-star123",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac"
+  },
+  "dependencies": {
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.kawauchi.studio",
+    "productName": "3D Slime Studio",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist/**",
+      "!**/*.md",
+      "!.gitignore",
+      "!node_modules/three/examples/**",
+      "!node_modules/three/src/**",
+      "!node_modules/three/editor/**",
+      "!node_modules/three/docs/**"
+    ],
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "dir"
+      ],
+      "category": "public.app-category.developer-tools"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Development"
+    }
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
+  }
+}

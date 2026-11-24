@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="app.title">うごけスライム</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+
+  <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+  </script>
+    
+  <!-- 6秒以内にmain.jsが起動しないなら、エラー画面を出す -->
+  <script>
+    (function () {
+      function show(msg) {
+        var el = document.getElementById('boot-error');
+        if (!el) return;
+        el.hidden = false;
+        var ja = String(navigator.language || 'ja').toLowerCase().indexOf('ja') === 0;
+        var blocks = el.querySelectorAll('[data-boot-lang]');
+        for (var i = 0; i < blocks.length; i++) blocks[i].hidden = (blocks[i].getAttribute('data-boot-lang') === 'ja') !== ja;
+        var ds = el.querySelectorAll('[data-boot-detail]');
+        for (var j = 0; j < ds.length; j++) if (msg && !ds[j].textContent) ds[j].textContent = msg;
+      }
+      window.addEventListener('error', function (e) {
+        if (window.__studioBooted) return;
+        var t = e.target;
+        show(t && t.src ? 'Failed to load: ' + t.src : (e.message || 'Script error'));
+      }, true);
+      window.addEventListener('unhandledrejection', function (e) {
+        if (!window.__studioBooted) show(String(e.reason && e.reason.message || e.reason));
+      });
+      setTimeout(function () {
+        if (!window.__studioBooted) show('main.js did not start within 6 seconds.');
+      }, 6000);
+    })();
+  </script>
+</head>
+<body>
+
+  <header class="app-header"> <!-- 47-49行目は上の操作バー -->
+    <div class="brand">
+      <h1 class="brand-title" data-i18n="app.title">うごけスライム</h1>
+    </div>
+
+    <div class="header-actions">
+      <button id="btn-reset-view" class="btn" type="button" data-i18n="hdr.resetView">視点リセット</button>
+
+      <div class="seg" role="group" data-i18n-aria="hdr.physics" aria-label="物理モード">
+        <button type="button" data-phys="fixed" aria-pressed="true" data-i18n="phys.fixed">固定モード</button>
+        <button type="button" data-phys="gravity" aria-pressed="false" data-i18n="phys.gravity">重力モード</button>
+      </div>
+
+      <div class="seg" role="group" data-i18n-aria="hdr.displayMode" aria-label="表示モード">
+        <button type="button" data-mode="solid" aria-pressed="true" data-i18n="mode.solid">ソリッド</button>
+        <button type="button" data-mode="wire" aria-pressed="false" id="btn-wire" data-i18n="mode.wire">ワイヤーフレーム</button>
+        <button type="button" data-mode="plexus" aria-pressed="false" data-i18n="mode.plexus">ネットワーク</button>
+      </div>
+
+      <div class="seg seg-mono" role="group" data-i18n-aria="hdr.theme" aria-label="テーマ">
+        <button type="button" data-theme-btn="light" aria-pressed="true" data-i18n-title="theme.light.title" title="ライトモード">AM</button>
+        <button type="button" data-theme-btn="dark" aria-pressed="false" data-i18n-title="theme.dark.title" title="ダークモード">PM</button>
+      </div>
+
+      <div class="seg seg-mono" role="group" data-i18n-aria="hdr.lang" aria-label="言語">
+        <button type="button" data-lang-btn="ja" aria-pressed="true">JP</button>
+        <button type="button" data-lang-btn="en" aria-pressed="false">EN</button>
+      </div>
+
+      <button id="btn-pause" class="btn" type="button" aria-pressed="false" data-i18n-title="hint.pause.v" title="時間停止／再開"><span data-i18n="hdr.pause">時間停止</span> <kbd class="key">S</kbd></button>
+      <button id="btn-shot" class="btn btn-primary" type="button" data-i18n="hdr.shot">スクリーンショット</button>
+    </div>
+  </header>
+
+  <div class="layout" id="layout">
+    
+    <!--　左側の設定パネル -->
+    <aside class="panel" id="panel" data-source="model" aria-label="設定パネル" data-i18n-aria="panel.aria">
+
+      <div class="panel-head">
+        <span class="panel-title" data-i18n="panel.title">設定</span>
+        <button id="btn-collapse" class="icon-btn" type="button" aria-expanded="true" data-i18n-title="panel.collapse" data-i18n-aria="panel.collapse" title="メニューを閉じる" aria-label="メニューを閉じる">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+
+      <section class="card" id="card-images" data-source="model">
+        <div class="tabs" role="tablist">
+          <button class="tab is-active" id="tab-model" type="button" role="tab" aria-selected="true" aria-controls="pane-model" data-src="model">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3zM4 7.5l8 4.5 8-4.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            <span data-i18n="tab.model">3Dモデルから生成</span>
+          </button>
+          <button class="tab" id="tab-image" type="button" role="tab" aria-selected="false" aria-controls="pane-image" data-src="image">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10.5" r="1.7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m4 17 5-4.5 4 3 3-2.5 4 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span data-i18n="tab.image">画像から生成</span>
+          </button>
+        </div>
+
+        <div id="pane-model" role="tabpanel" aria-labelledby="tab-model">
+          <div class="slot slot--model" id="slot-model">
+            <div class="slot-empty">
+              <svg class="ico" viewBox="0 0 32 32" width="38" height="38" aria-hidden="true"><path d="m16 3.5 11 6.2v12.6L16 28.5 5 22.3V9.7L16 3.5zM5 9.7l11 6.3 11-6.3M16 16v12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+              <span class="slot-name" id="model-title" data-i18n="model.drop.title">3Dモデル</span>
+              <span class="slot-cta" id="model-cta" data-i18n="model.drop.cta">3Dモデルをドロップまたは選択</span>
+            </div>
+            <button class="slot-clear" id="btn-model-clear" type="button" hidden data-i18n-title="slot.clear" data-i18n-aria="slot.clear" title="削除" aria-label="削除"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="m3.5 3.5 9 9m0-9-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+            <input class="file-input" id="file-model" type="file" multiple data-i18n-aria="model.drop.title" aria-label="3Dモデル">
+          </div>
+          <div class="model-info" id="model-info" hidden>
+            <div class="model-name" id="model-name"></div>
+            <div class="model-stats" id="model-stats"></div>
+            <div class="model-files" id="model-files" hidden></div>
+            <div class="model-color" id="model-color" data-color="none"></div>
+            <ul class="model-warns" id="model-warns"></ul>
+          </div>
+        </div>
+
+        <div id="pane-image" role="tabpanel" aria-labelledby="tab-image" hidden>
+          <div class="img-head">
+            <h2 class="section-title" data-i18n="sec.images">入力画像</h2>
+          </div>
+
+          <div class="slots">
+            <!-- 正面：メインのドロップゾーン -->
+            <div class="slot slot--main" data-view="front">
+              <img class="slot-thumb" alt="" hidden>
+              <div class="slot-empty">
+                <svg class="ico" viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><path d="M4 11a3 3 0 0 1 3-3h3.2l1.6-2.4a1.5 1.5 0 0 1 1.2-.6h6a1.5 1.5 0 0 1 1.2.6L21.8 8H25a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V11z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="16" cy="16.5" r="4.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+                <span class="slot-name" data-i18n="slot.front.name">正面</span>
+                <span class="slot-cta" data-i18n="slot.main.cta">クリックまたは画像をドロップ</span>
+              </div>
+              <span class="slot-state"></span>
+              <button class="slot-clear" type="button" hidden data-i18n-title="slot.clear" data-i18n-aria="slot.clear" title="削除" aria-label="削除"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="m3.5 3.5 9 9m0-9-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+              <input class="file-input" type="file" accept="image/*" data-i18n-aria="slot.front.name" aria-label="正面">
+            </div>
+
+            <!-- 背面：正面の直下 -->
+            <div class="slot slot--sub" data-view="back">
+              <div class="slot-box">
+                <img class="slot-thumb" alt="" hidden>
+                <span class="slot-empty"><svg class="ico" viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect x="4.5" y="6.5" width="23" height="19" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="11.5" cy="13" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m5 23 6.5-6 5 4.5 4-3.5L27 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              </div>
+              <div class="slot-meta">
+                <span class="slot-name" data-i18n="slot.back.name">背面</span>
+                <span class="slot-state"></span>
+              </div>
+              <button class="slot-clear" type="button" hidden data-i18n-title="slot.clear" data-i18n-aria="slot.clear" title="削除" aria-label="削除"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="m3.5 3.5 9 9m0-9-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+              <input class="file-input" type="file" accept="image/*" data-i18n-aria="slot.back.name" aria-label="背面">
+            </div>
+
+            <!-- その他の面 -->
+            <button class="more-btn" id="btn-more" type="button" aria-expanded="false" aria-controls="more-wrap">
+              <span class="more-label" data-i18n="acc.label">その他の面</span>
+              <svg class="chev" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="more-wrap" id="more-wrap">
+              <div class="more-inner">
+                <div class="more-grid">
+              <div class="slot slot--tile" data-view="right">
+                <div class="slot-box">
+                  <img class="slot-thumb" alt="" hidden>
+                  <span class="slot-empty"><svg class="ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+                  <button class="slot-clear" type="button" hidden data-i18n-title="slot.clear" data-i18n-aria="slot.clear" title="削除" aria-label="削除"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="m3.5 3.5 9 9m0-9-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+                </div>
+                <span class="slot-name" data-i18n="slot.right.name">右側面</span>
+                <input class="file-input" type="file" accept="image/*" data-i18n-aria="slot.right.name" aria-label="右側面">
+              </div>
+              <div class="slot slot--tile" data-view="left">
+                <div class="slot-box">
+                  <img class="slot-thumb" alt="" hidden>
+                  <span class="slot-empty"><svg class="ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+                  <button class="slot-clear" type="button" hidden data-i18n-title="slot.clear" data-i18n-aria="slot.clear" title="削除" aria-label="削除"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="m3.5 3.5 9 9m0-9-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+                </div>
+                <span class="slot-name" data-i18n="slot.left.name">左側面</span>
+                <input class="file-input" type="file" accept="image/*" data-i18n-aria="slot.left.name" aria-label="左側面">
+              </div>
+              <div class="slot slot--tile" data-view="top">
+                <div class="slot-box">
+                  <img class="slot-thumb" alt="" hidden>
+                  <span class="slot-empty"><svg class="ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+                  <button class="slot-clear" type="button" hidden data-i18n-title="slot.clear" data-i18n-aria="slot.clear" title="削除" aria-label="削除"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="m3.5 3.5 9 9m0-9-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+                </div>
+                <span class="slot-name" data-i18n="slot.top.name">上面</span>
+                <input class="file-input" type="file" accept="image/*" data-i18n-aria="slot.top.name" aria-label="上面">
+              </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- メッシュ生成スライダー -->
+      <section class="card" id="card-mesh">
+        <h2 class="section-title" data-i18n="sec.mesh">3D メッシュ生成</h2>
+
+        <!--
+          【ボクセル解像度 N】
+          ・意味：立体を作るときの空間の細かさ（最長軸の分割数）。大きいほど滑らかだが重くなる。
+          ・数式：ボクセル1マスの幅 h = 2 / N ／ 頂点数 V はおおよそ N² に比例する。
+        -->
+        <div class="field">
+          <div class="field-head"><label for="p-res"><span data-i18n="p.res">ボクセル解像度</span> <span class="sym">N</span></label><output id="o-res" class="val">40</output></div>
+          <input id="p-res" type="range" min="24" max="64" step="2" value="40">
+        </div>
+
+        <!--
+          【背景しきい値 bgth】
+          ・意味：透過のない画像で「どこまでを背景として切り抜くか」の感度。
+          ・数式：四隅の背景色 (r0, g0, b0) との色差 √((r-r0)² + (g-g0)² + (b-b0)²) < bgth × 441.67 なら背景と判定（441.67 ≈ √(255²×3)）。
+        -->
+        <div class="field">
+          <div class="field-head"><label for="p-bgth" data-i18n="p.bgth">背景しきい値</label><output id="o-bgth" class="val">0.10</output></div>
+          <input id="p-bgth" type="range" min="0.02" max="0.40" step="0.01" value="0.10">
+        </div>
+
+        <!--
+          【レリーフ強度 α】
+          ・意味：画像の明るさ（陰影）を「凹凸（厚み・彫刻）」としてどれくらい反映するか。
+          ・数式：
+            1枚のとき厚み T(x,y) = Hz × (0.2 + 0.8 × clamp((1 - α)r + α h)) ※rは輪郭からの丸み、hは輝度深度
+            多視点のとき彫刻深さ = α × 0.3 × 2H × (1 - h)
+        -->
+        <div class="field">
+          <div class="field-head"><label for="p-relief"><span data-i18n="p.relief">レリーフ強度</span> <span class="sym">&alpha;</span></label><output id="o-relief" class="val">0.35</output></div>
+          <input id="p-relief" type="range" min="0" max="1" step="0.05" value="0.35">
+        </div>
+
+        <!--
+          【押し出し厚み depth】
+          ・意味：画像が1枚（または同一平面のみ）のとき、奥行きなど未指定の軸をどれくらい膨らませるか。
+          ・数式：未指定軸の厚み = depth × min(幅W, 高さH)
+        -->
+        <div class="field">
+          <div class="field-head"><label for="p-depth" data-i18n="p.depth">押し出し厚み</label><output id="o-depth" class="val">0.45</output></div>
+          <input id="p-depth" type="range" min="0.15" max="1" step="0.05" value="0.45">
+        </div>
+
+        <!--
+          【深度コントラスト contrast】
+          ・意味：画像の明暗から擬似的な高さ h を作るときのメリハリの強さ。
+          ・数式：h = clamp(0.5 + (t - 0.5) × contrast, 0, 1) ※tは輝度を2〜98%で正規化した値(0..1)
+        -->
+        <div class="field">
+          <div class="field-head"><label for="p-contrast" data-i18n="p.contrast">深度コントラスト</label><output id="o-contrast" class="val">1.3</output></div>
+          <input id="p-contrast" type="range" min="0.5" max="3" step="0.1" value="1.3">
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title" data-i18n="sec.phys">物理パラメータ</h2>
+
+        <!--
+          【剛性係数 k】
+          ・意味：バネの硬さ。小さいとスライムのように柔らかく、大きいとゴムや金属のように硬くなる。
+          ・数式：フックの法則 F_spring = -k_s (L - L0) ／ 弾性エネルギー E_spring = ½ k_s (L - L0)²
+                  ※k_s = k × 重み（構造1.0 / せん断0.45 / 曲げ0.2 / 内部支持0.3）、L0は自然長
+        -->
+        <div class="field">
+          <div class="field-head"><label for="p-k"><span data-i18n="p.k">剛性係数</span> <span class="sym">k</span></label><output id="o-k" class="val">500</output></div>
+          <input id="p-k" type="range" min="50" max="2500" step="10" value="500">
+        </div>
+
+        <!--
+          【減衰係数 c】
+          ・意味：空気抵抗や粘り気によるブレーキの強さ。小さいほどプルプル長く揺れ続け、大きいとすぐ止まる。
+          ・数式：粘性抵抗力 F_damp = -c v （速度 v に比例して逆向きに働く力）
+        -->
+        <div class="field">
+          <div class="field-head"><label for="p-c"><span data-i18n="p.c">減衰係数</span> <span class="sym">c</span></label><output id="o-c" class="val">1.2</output></div>
+          <input id="p-c" type="range" min="0" max="8" step="0.1" value="1.2">
+        </div>
+
+        <!--
+          【重力加速度 g】
+          ・意味：重力モード時に下向き（-y方向）へ引っ張る重力の強さ（地球は約 9.8 m/s²）。
+          ・数式：重力 F_grav = -m g （このソフトでは質量 m = 1 なので、下向き加速度はそのまま -g）
+        -->
+        <div class="field">
+          <div class="field-head"><label for="p-g"><span data-i18n="p.g">重力加速度</span> <span class="sym">g</span></label><output id="o-g" class="val">9.8</output></div>
+          <input id="p-g" type="range" min="0" max="20" step="0.1" value="9.8" disabled>
+        </div>
+
+        <!--
+          【把持影響半径 R】
+          ・意味：マウスでつまんだ頂点の周囲、どれくらいの範囲の頂点を一緒に引っ張るか。
+          ・数式：距離 d < R の頂点に重み w(d) = (1 - d² / R²)² × 法線ゲート を掛けて牽引力を分配する。
+        -->
+        <div class="field">
+          <div class="field-head"><label for="p-R"><span data-i18n="p.R">把持影響半径</span> <span class="sym">R</span></label><output id="o-R" class="val">0.50</output></div>
+          <input id="p-R" type="range" min="0.1" max="1.2" step="0.01" value="0.5">
+        </div>
+
+        <!--
+          【体積保持係数 β】
+          ・意味：風船の中の空気圧のように、潰されたときに元の体積 V0 を保とうと押し返す内圧の強さ。
+          ・数式：体積エネルギー U_vol(V) = (β k V0 / a_mean) × (V / V0 - ln(V / V0) - 1)
+                  ※閉じたメッシュでのみ有効（穴あきメッシュでは無効）
+        -->
+        <div class="field">
+          <div class="field-head"><label for="p-beta"><span data-i18n="p.beta">体積保持係数</span> <span class="sym">&beta;</span></label><output id="o-beta" class="val">1.0</output></div>
+          <input id="p-beta" type="range" min="0" max="3" step="0.1" value="1">
+        </div>
+
+        <!--
+          【形状復元比 kr / k】
+          ・意味：形状記憶合金のように「元の形 x0」へ戻ろうとする見えないバネの強さの割合（ρ = kr / k）。
+          ・数式：復元バネ定数 kr = ρ k ／ 復元力 F_restore = -kr (x - x0) ／ エネルギー E_restore = ½ kr |x - x0|²
+        -->
+        <div class="field">
+          <div class="field-head"><label for="p-rho"><span data-i18n="p.rho">形状復元比</span> <span class="sym">k<sub>r</sub>/k</span></label><output id="o-rho" class="val">0.25</output></div>
+          <input id="p-rho" type="range" min="0.05" max="1" step="0.01" value="0.25">
+        </div>
+      </section>
+
+    </aside>
+
+    <!-- 中央の3d画面と計器 -->
+    <main class="viewport" id="viewport">
+      <canvas id="gl" data-i18n-aria="viewport.aria" aria-label="3Dビューポート"></canvas>
+
+      <button id="btn-expand" class="expand-btn" type="button" data-i18n-title="panel.expand" data-i18n-aria="panel.expand" title="メニューを開く" aria-label="メニューを開く">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+      <div class="pause-chip" id="pause-chip" hidden data-i18n="pause.chip">時間停止中（Sキーで再開）</div>
+
+      <div class="hud-stack">
+
+        <aside class="telemetry" data-i18n-aria="tele.aria" aria-label="シミュレーション状態">
+        <div class="tele-head">
+          <span class="tele-title" data-i18n="tele.title">シミュレーション状態</span>
+          <span class="tele-state" id="tele-state" data-state="idle"><i class="dot"></i><span id="tele-state-text" data-i18n="tele.state.idle">待機中</span></span>
+        </div>
+        <dl class="tele-list">
+          <div class="tele-row">
+            <dt><span data-i18n="tele.E">総弾性エネルギー</span></dt>
+            <dd id="tele-E">-</dd>
+          </div>
+          <div class="tele-row">
+            <dt><span data-i18n="tele.grad">最大勾配ノルム</span></dt>
+            <dd id="tele-grad">-</dd>
+          </div>
+          <div class="tele-row">
+            <dt><span data-i18n="tele.kappa">ヘッセ条件数（剛性比）</span></dt>
+            <dd id="tele-kappa">-</dd>
+          </div>
+          <div class="tele-row">
+            <dt><span data-i18n="tele.force">把持力</span></dt>
+            <dd id="tele-force">0.000</dd>
+          </div>
+        </dl>
+        <div class="tele-foot">
+          <span>&lambda;<sub>max</sub> <b id="tele-lmax">-</b></span>
+          <span>&lambda;<sub>min</sub> <b id="tele-lmin">-</b></span>
+          <span>V <b id="tele-verts">0</b></span>
+          <span>S <b id="tele-springs">0</b></span>
+          <span><b id="tele-fps">0</b> <span data-i18n="unit.fps">fps</span></span>
+        </div>
+        </aside>
+      </div>
+
+      <div class="hint" aria-hidden="true">
+        <span><kbd data-i18n="hint.grab.k">左ドラッグ</kbd> <span data-i18n="hint.grab.v">引っ張る</span></span>
+        <span><kbd data-i18n="hint.rot.k">Shift + 左ドラッグ</kbd> <span data-i18n="hint.rot.v">視点回転</span></span>
+        <span><kbd data-i18n="hint.zoom.k">ホイール</kbd> <span data-i18n="hint.zoom.v">ズーム</span></span>
+        <span><kbd data-i18n="hint.pan.k">右ドラッグ</kbd> <span data-i18n="hint.pan.v">平行移動</span></span>
+        <span><kbd data-i18n="hint.pause.k">Sキー</kbd> <span data-i18n="hint.pause.v">時間停止／再開</span></span>
+      </div>
+
+      <button id="btn-reset-all" class="reset-all" type="button" data-i18n="reset.btn">すべて初期化</button>
+
+      <div class="engine-error" id="engine-error" hidden role="alert">
+        <h2 id="engine-error-title" data-i18n="err.title">3D エンジンを開始できません</h2>
+        <p id="engine-error-msg"></p>
+        <pre id="engine-error-detail"></pre>
+        <button id="btn-engine-retry" class="btn btn-primary" type="button" data-i18n="err.retry">再試行</button>
+      </div>
+    </main>
+
+  </div>
+
+  <div class="modal-backdrop" id="modal" hidden>
+    <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-msg">
+      <h2 id="modal-title" class="modal-title"></h2>
+      <p id="modal-msg" class="modal-msg"></p>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="btn" type="button" data-i18n="modal.cancel">キャンセル</button>
+        <button id="modal-ok" class="btn btn-primary" type="button" data-i18n="modal.ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="boot-error" class="boot-error" hidden role="alert">
+    <div lang="ja" data-boot-lang="ja">
+      <strong>起動に失敗しました</strong>
+      <p data-boot-detail></p>
+      <p>main.js の読み込みまたは実行に失敗しています。開発者ツール（表示 &gt; 開発者ツール）のコンソールを確認してください。</p>
+    </div>
+    <div lang="en" data-boot-lang="en" hidden>
+      <strong>Startup failed</strong>
+      <p data-boot-detail></p>
+      <p>main.js failed to load or run. Check the DevTools console (View &gt; Developer Tools).</p>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
